@@ -1,10 +1,352 @@
-<!DOCTYPE html>
 <html>
+
 <head>
-    <title>Hello World</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!-- 使用CDN版本的Vue.js -->
+    <script src="https://unpkg.com/vue@2.6.14/dist/vue.min.js"></script>
+    <!-- 引入Element UI样式 -->
+    <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.13/lib/theme-chalk/index.css">
+    <!-- 引入Element UI组件库 -->
+    <script src="https://unpkg.com/element-ui@2.15.13/lib/index.js"></script>
+    <title>本地规范库</title>
 </head>
-<body>
-    <h1>Hello World</h1>
-    <script src="m.js"></script>
+
+<body style='margin: 0;padding: 0;overflow: hidden;'>
+    <div id="app">
+        <el-container>
+            <el-header style="text-align:center;background-color: gainsboro;line-height: 15px;">
+                <h2 id="statement">设计规范</h2>
+            </el-header>
+            <el-container style="height: calc(100vh - 60px);">
+                <el-row class="tac" style="height: 100%; position: relative;">
+                    <!-- 左侧侧边栏 -->
+                    <el-col :span="24" style="height:100vh">
+                        <div class="sidebar-container" 
+                            :style="{
+                                width: isCollapsed ? '5px' : '400px',
+                                transition: 'width 0.3s cubic-bezier(0.33, 1, 0.68, 1)',
+                                height: '100vh'
+                            }">
+                            <div class="sidebar-toggle" 
+                                 @click="toggleSidebar"
+                                 :style="{
+                                     right: isCollapsed ? 'calc(5px - 18px)' : 'calc(400px - 18px)'
+                                 }">
+                                <i :class="['el-icon-s-fold', {'is-collapsed': isCollapsed}]" 
+                                   style="transition: all 0.3s;"></i>
+                            </div>
+                            <el-scrollbar ref="treeScrollbar" v-show="!isCollapsed" style="height: calc(100vh - 160px); overflow: hidden;">
+                                <h5 class="mb-2" style="text-align:center;" @click="kk()">目录</h5>
+                                <el-tree 
+                                    ref="tree"
+                                    :data="books"
+                                    style="height:100%;" 
+                                    @node-click="handleNodeClick" 
+                                    :props="defaultProps" 
+                                    node-key="index"
+                                    accordion>
+                                </el-tree>
+                            </el-scrollbar>
+                        </div>
+                    </el-col>
+                    
+                    <!-- 右侧内容区 -->
+                    <div class="content-container"
+                        :style="{
+                            left: isCollapsed ? '10px' : '400px',
+                            width: isCollapsed ? 'calc(100% - 5px)' : 'calc(100% - 400px)',
+                            height: 'calc(100vh - 60px)'
+                        }">
+                        <el-scrollbar style="height: calc(100vh - 60px);">
+                            <el-main style='margin: 0;padding: 0;height: calc(100vh - 60px);'>
+                                <iframe id='page' src="" width="100%" height="100%" frameborder="0" style="background-color: GhostWhite; margin: 0; padding: 0;"></iframe>
+                            </el-main>
+                        </el-scrollbar>
+                    </div>
+                </el-row>
+                <el-footer style="display: none;"></el-footer>
+            </el-container>
+        </el-container>
+    </div>
+    <script src="/m.js"></script>
+    <script>
+    new Vue({
+        el: '#app',
+        data: {
+            message: 'Hello Vue.js!',
+            books: list_1,
+            defaultProps: {
+                children: 'content',
+                label: 'title'
+            },
+            sidebarWidth: 400,
+            minWidth: 300,
+            maxWidth: 500,
+            isCollapsed: true,
+            isDragging: false,
+            startX: 0,
+            startWidth: 200,
+        },
+        created() {
+            console.log("Vue instance created, autoExpandPath:", window.autoExpandPath);
+            this.$autoExpandPath = window.autoExpandPath;
+        },
+        mounted() {
+            console.log("Vue mounted, checking autoExpandPath:", this.$autoExpandPath);
+            
+            if(this.$autoExpandPath) {
+                console.log('Starting auto expand with path:', this.$autoExpandPath);
+                this.$nextTick(() => {
+                    const tree = this.$refs.tree;
+                    if (!tree) {
+                        console.error('Tree component not found!');
+                        return;
+                    }
+                    console.log('Tree instance found:', tree);
+                    console.log('Current tree data:', this.books);
+                    
+                    // 优化的展开逻辑：先找到第一层，然后在该分支内搜索
+                    if (this.$autoExpandPath && this.$autoExpandPath.length > 0) {
+                        // 获取第一层节点（知识库）的索引
+                        const rootIndex = this.$autoExpandPath[0];
+                        console.log(`查找并展开第一层节点: ${rootIndex}`);
+                        
+                        // 查找第一层节点
+                        let rootNode = null;
+                        for (const node of this.books) {
+                            if (node.index === rootIndex) {
+                                rootNode = node;
+                                console.log(`找到第一层节点: ${rootNode.title}`);
+                                break;
+                            }
+                        }
+                        
+                        if (!rootNode) {
+                            console.error(`未找到第一层节点: ${rootIndex}`);
+                            return;
+                        }
+                        
+                        // 展开第一层节点
+                        setTimeout(() => {
+                            try {
+                                const nodeKey = rootNode.index;
+                                if (tree.store.nodesMap[nodeKey]) {
+                                    tree.store.nodesMap[nodeKey].expanded = true;
+                                    console.log(`成功展开第一层节点: ${nodeKey}`);
+                                    
+                                    // 在第一层节点内搜索后续节点
+                                    this.expandSubtree(tree, rootNode, this.$autoExpandPath.slice(1));
+                                } else {
+                                    console.error(`找不到第一层节点的树节点对象: ${nodeKey}`);
+                                }
+                            } catch (err) {
+                                console.error(`展开第一层节点时出错:`, err);
+                            }
+                        }, 300);
+                    }
+                });
+            }
+            
+            // 添加响应式布局检测
+            this.checkViewport();
+            window.addEventListener('resize', this.checkViewport);
+        },
+        beforeDestroy() {
+            // 移除事件监听
+            window.removeEventListener('resize', this.checkViewport);
+        },
+        methods: {
+            // 递归展开子树中的路径
+            expandSubtree(tree, parentNode, remainingPath) {
+                if (!remainingPath || remainingPath.length === 0) {
+                    return;
+                }
+                
+                const targetIndex = remainingPath[0];
+                console.log(`在节点 ${parentNode.index} 内查找子节点: ${targetIndex}`);
+                
+                // 在当前节点的子节点中查找
+                if (parentNode.content && parentNode.content.length > 0) {
+                    for (const childNode of parentNode.content) {
+                        if (childNode.index === targetIndex) {
+                            console.log(`找到子节点: ${childNode.title} (${childNode.index})`);
+                            
+                            try {
+                                // 展开找到的节点
+                                if (tree.store.nodesMap[childNode.index]) {
+                                    tree.store.nodesMap[childNode.index].expanded = true;
+                                    console.log(`成功展开节点: ${childNode.index}`);
+                                    
+                                    // 如果是最后一个节点，选中它
+                                    if (remainingPath.length === 1) {
+                                        tree.setCurrentKey(childNode.index);
+                                        // this.handleNodeClick(childNode);
+                                        console.log(`选中并点击最后节点: ${childNode.index}`);
+
+                                        // --- START: 修改后的滚动逻辑 ---
+                                        this.$nextTick(() => {
+                                                setTimeout(() => {
+                                                    const scrollbarComponent = this.$refs.treeScrollbar;
+                                                    const treeComponent = this.$refs.tree;
+
+                                                    if (!scrollbarComponent || !treeComponent) {
+                                                        console.error('无法找到滚动条或树形组件的引用！');
+                                                        return;
+                                                    }
+
+                                                    // 关键改动：不再使用 [data-key]，而是查找组件添加的 .is-current class
+                                                    // 这个选择器意为“在树组件中，找到那个同时拥有 .el-tree-node 和 .is-current 类的元素”
+                                                    const nodeDom = treeComponent.$el.querySelector('.el-tree-node.is-current');
+
+                                                    if (nodeDom) {
+                                                        console.log(`通过 .is-current 成功找到节点DOM！`);
+                                                        const scrollbarWrap = scrollbarComponent.wrap;
+                                                        const targetTop = nodeDom.offsetTop;
+                                                        const containerHeight = scrollbarWrap.clientHeight;
+                                                        const scrollToPosition = targetTop - (containerHeight / 2) + (nodeDom.clientHeight / 2);
+                                                        
+                                                        // 执行平滑滚动
+                                                        scrollbarWrap.scrollTo({
+                                                            top: scrollToPosition,
+                                                            behavior: 'smooth'
+                                                        });
+
+                                                    } else {
+                                                        // 如果这里还报错，那问题就非常奇怪了，但理论上不会
+                                                        console.error(`严重错误：无法找到被setCurrentKey选中的节点 (.is-current)`);
+                                                    }
+                                                }, 300); // 延迟保留，等待高亮样式的动画完成
+                                            });
+                                            // --- END: 修改后的滚动逻辑 ---
+
+
+
+                                    } else {
+                                        // 否则继续递归展开
+                                        this.expandSubtree(tree, childNode, remainingPath.slice(1));
+                                    }
+                                    return;
+                                } else {
+                                    console.warn(`找不到节点的树节点对象: ${childNode.index}`);
+                                }
+                            } catch (err) {
+                                console.error(`展开节点 ${childNode.index} 时出错:`, err);
+                            }
+                            break;
+                        }
+                    }
+                    
+                    console.warn(`在节点 ${parentNode.index} 内未找到子节点: ${targetIndex}`);
+                } else {
+                    console.warn(`节点 ${parentNode.index} 没有子节点`);
+                }
+            },
+            
+            change(i) { document.getElementById('page').src = 'file:///' + i },
+            kk() { alert(this.message) },
+            handleOpen(key, keyPath) {
+                console.log(key, keyPath);
+            },
+            handleClose(key, keyPath) {
+                console.log(key, keyPath);
+            },
+            handleNodeClick(data) {
+                console.log(data.ul);
+                if (data.ul) { 
+                    document.getElementById('page').src = '/gf/' + data.ul;
+                    
+                    // 新增移动端点击后自动收起侧边栏
+                    if (window.innerWidth < 768) {
+                        this.isCollapsed = true;
+                    }
+                }
+            },
+            toggleSidebar() {
+                this.isCollapsed = !this.isCollapsed;
+                // 添加状态持久化（可选）
+                localStorage.setItem('sidebarCollapsed', this.isCollapsed);
+            },
+            // 新增响应式布局方法
+            checkViewport() {
+                const isMobile = window.innerWidth < 768; // 设定768px为分界点
+                this.isCollapsed = isMobile;
+                
+                // 调试信息
+                console.log(`Viewport changed: ${window.innerWidth}px, isCollapsed: ${this.isCollapsed}`);
+            }
+        },
+    })
+    </script>
+    <style>
+    /* 覆盖 Element UI Tree 组件的当前选中项样式 */
+    .el-tree-node.is-current > .el-tree-node__content {
+        background-color: #fffbe6 !important; /* 一个柔和的、不刺眼的黄色 */
+        font-weight: bold;
+    }
+    .sidebar-toggle {
+        position: absolute;
+        top: -45px;
+        z-index: 1000;
+        background: #fff;
+        border: 1px solid #ebeef5;
+        border-radius: 50%;
+        padding: 6px;
+        cursor: pointer;
+        box-shadow: 0 2px 12px 0 rgba(0,0,0,.1);
+        transition: all 0.3s;
+        left: 5px;
+        width: 16px;
+        height: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .sidebar-toggle:hover {
+        background: #f5f7fa;
+    }
+    .is-collapsed {
+        transform: rotate(180deg);
+    }
+    .sidebar-container {
+        height: 100%;
+        position: relative;
+        background: white;
+        box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+    }
+
+    .content-container {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        transition: all 0.3s cubic-bezier(0.33, 1, 0.68, 1);
+        height: 100vh;
+    }
+        /* 隐藏所有默认滚动条 */
+    ::-webkit-scrollbar {
+        width: 0 !important;
+        height: 0 !important;
+        display: none;
+    }
+
+    /* 确保 Element 的滚动条正常工作 */
+    .el-scrollbar__wrap {
+        overflow-x: hidden !important;
+        overflow-y: scroll !important;
+    }
+
+    .el-scrollbar {
+        /* 默认PC端样式 */
+        height: calc(100vh - 65px) !important;
+    }
+
+    /* 移动设备样式 */
+    @media screen and (max-width: 768px) {
+        .el-scrollbar {
+            height: calc(100vh - 160px) !important;
+        }
+    }
+    </style>
 </body>
+
 </html>
